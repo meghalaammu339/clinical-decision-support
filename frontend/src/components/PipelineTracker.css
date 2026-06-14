@@ -1,0 +1,84 @@
+.pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px 28px;
+}
+
+.pipeline-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-node {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #334155;
+  border: 2px solid #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #94a3b8;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.pipeline-node.active {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: white;
+  box-shadow: 0 0 16px #2563eb88;
+  animation: pulse 1s infinite;
+}
+
+.pipeline-node.done {
+  background: #16a34a;
+  border-color: #22c55e;
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+.pipeline-label {
+  text-align: left;
+}
+
+.step-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.step-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.pipeline-arrow {
+  color: #475569;
+  font-size: 18px;
+  margin: 0 4px;
+  transition: color 0.3s;
+}
+
+.pipeline-arrow.arrow-done {
+  color: #22c55e;
+}
+
+@media (max-width: 640px) {
+  .pipeline-arrow { display: none; }
+  .pipeline { gap: 12px; }
+}

@@ -1,0 +1,210 @@
+.report {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.report-header {
+  background: linear-gradient(135deg, #1e3a5f, #1e293b);
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #334155;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.report-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 32px;
+}
+
+.report-title h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.report-title p {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.urgency-badge {
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.section {
+  padding: 22px 28px;
+  border-bottom: 1px solid #0f172a;
+}
+
+.section h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+
+.summary-text {
+  color: #cbd5e1;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+.primary-dx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0f172a;
+  border: 1px solid #22c55e33;
+  border-radius: 10px;
+  padding: 16px 20px;
+  font-size: 22px;
+}
+
+.primary-dx-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+/* Differentials */
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.diff-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.diff-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.diff-rank {
+  background: #334155;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.diff-condition {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f1f5f9;
+  flex: 1;
+}
+
+.diff-prob {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.diff-urgency {
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
+.diff-evidence {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.evidence-label {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.evidence-label.for { color: #22c55e; }
+.evidence-label.against { color: #ef4444; }
+
+.diff-evidence ul { list-style: none; }
+.diff-evidence li {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 2px 0;
+  line-height: 1.5;
+}
+
+.diff-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+  border-top: 1px solid #1e293b;
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+/* Tags */
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag {
+  background: #1e3a5f;
+  color: #60a5fa;
+  border: 1px solid #2563eb44;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+/* Actions */
+.action-list { padding-left: 20px; }
+.action-list li {
+  color: #cbd5e1;
+  padding: 4px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Referral */
+.referral { font-size: 15px; color: #a78bfa; }
+
+/* Critique */
+.critique { background: #1a1a2e; }
+.critique p { color: #cbd5e1; line-height: 1.7; font-size: 14px; }
+
+/* Disclaimer */
+.disclaimer {
+  padding: 16px 28px;
+  background: #451a03;
+  color: #fed7aa;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .diff-evidence { grid-template-columns: 1fr; }
+  .report-header { flex-direction: column; align-items: flex-start; }
+}
