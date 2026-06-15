@@ -31,3 +31,5 @@ class ClinicalState(TypedDict):
     # Pipeline control — tracks current step and any errors
     error: Optional[str]
     current_step: Optional[str]
+    confidence_score: Optional[int]
+    risk_assessment: Optional[dict]

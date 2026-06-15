@@ -77,6 +77,7 @@ def critique_agent(state: ClinicalState) -> ClinicalState:
         return {
             **state,
             "critique": result.get("critique_summary"),
+            "confidence_score": result.get("confidence_score"), 
             "final_report": result.get("final_report"),
             "current_step": "complete"
         }

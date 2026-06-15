@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./PatientForm.css";
+import VoiceInput from "./VoiceInput";
 
 const SAMPLE = {
   symptoms: "Chest pain radiating to left arm, sweating, shortness of breath",
@@ -30,7 +31,10 @@ export default function PatientForm({ onSubmit, loading }) {
   };
 
   const loadSample = () => setForm(SAMPLE);
-
+  
+  const handleVoice = (text) => {
+  setForm({ ...form, symptoms: form.symptoms + " " + text });
+};
   return (
     <div className="form-card">
       <div className="form-header">
@@ -42,8 +46,10 @@ export default function PatientForm({ onSubmit, loading }) {
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="form-group full">
-            <label>Symptoms *</label>
+          <div className="label-row">
+            <label>Symptoms *</label>\
+            <VoiceInput onTranscript={handleVoice} />
+
             <textarea
               name="symptoms"
               value={form.symptoms}

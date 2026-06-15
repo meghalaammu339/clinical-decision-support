@@ -1,0 +1,25 @@
+.gauge-wrapper {
+  padding: 22px 28px;
+  border-bottom: 1px solid #0f172a;
+}
+
+.gauge-wrapper h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+
+.gauge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gauge-label {
+  font-size: 14px;
+  font-weight: 600;
+}

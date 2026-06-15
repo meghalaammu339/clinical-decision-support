@@ -208,3 +208,9 @@
   .diff-evidence { grid-template-columns: 1fr; }
   .report-header { flex-direction: column; align-items: flex-start; }
 }
+
+.report-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
