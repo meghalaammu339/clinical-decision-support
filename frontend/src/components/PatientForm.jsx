@@ -46,19 +46,20 @@ export default function PatientForm({ onSubmit, loading }) {
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="label-row">
-            <label>Symptoms *</label>\
-            <VoiceInput onTranscript={handleVoice} />
-
-            <textarea
-              name="symptoms"
-              value={form.symptoms}
-              onChange={handleChange}
-              placeholder="Describe presenting symptoms in detail..."
-              rows={3}
-              required
-            />
-          </div>
+          <div className="form-group full">
+  <div className="label-row">
+    <label>Symptoms *</label>
+    <VoiceInput onTranscript={handleVoice} />
+  </div>
+  <textarea
+    name="symptoms"
+    value={form.symptoms}
+    onChange={handleChange}
+    placeholder="Describe presenting symptoms in detail..."
+    rows={3}
+    required
+  />
+</div>
 
           <div className="form-group">
             <label>Age *</label>
