@@ -49,4 +49,4 @@ def risk_agent(state: ClinicalState) -> ClinicalState:
         return {**state, "risk_assessment": result, "current_step": "risk_complete"}
     except Exception as e:
         print(f"Risk agent failed (non-fatal): {e}")
-        return {**state, "risk_assessment": None, "current_step": "risk_skipped"}
+        return {**state, "risk_assessment": {"risk_score": 0, "risk_level": "unknown", "risk_factors": [], "protective_factors": [], "risk_summary": "Risk assessment unavailable"}, "current_step": "risk_skipped"}

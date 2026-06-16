@@ -61,7 +61,7 @@ def critique_agent(state: ClinicalState) -> ClinicalState:
     # Summarize evidence — we don't need full content here
     # just enough for the critique agent to know what sources were used
     evidence_summary = "\n".join([
-        f"[{e['condition']}] from {e['source']}"
+        f"[{e.get('condition', e.get('source', 'unknown'))}] from {e.get('source', 'unknown')}"
         for e in state["retrieved_evidence"]
     ])
 
@@ -77,7 +77,8 @@ def critique_agent(state: ClinicalState) -> ClinicalState:
         return {
             **state,
             "critique": result.get("critique_summary"),
-            "confidence_score": result.get("confidence_score"), 
+            "missed_diagnoses": result.get("missed_diagnoses"),
+            "confidence_score": result.get("confidence_score"),
             "final_report": result.get("final_report"),
             "current_step": "complete"
         }

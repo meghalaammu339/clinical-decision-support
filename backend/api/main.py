@@ -128,30 +128,30 @@ async def drug_interactions(request: DrugCheckRequest):
 
 @app.post("/analyze", response_model=DiagnosisResponse)
 async def analyze_patient(request: PatientCaseRequest):
-
-    # Build initial state — this is what gets passed to first agent
+    from datetime import datetime
     initial_state = {
-        "raw_input": request.model_dump(),  # converts pydantic model to dict
+        "messages": [],
+        "raw_input": request.model_dump(),
+        "risk_assessment": None,
         "structured_case": None,
         "retrieved_evidence": None,
         "differential_diagnosis": None,
         "critique": None,
+        "missed_diagnoses": None,
+        "confidence_score": None,
         "final_report": None,
+        "next_agent": None,
+        "loop_count": 0,
         "error": None,
         "current_step": "starting"
     }
 
-    try:
-        # Run the full 4-agent pipeline
-        # This is synchronous — waits for all agents to complete
-        result = clinical_graph.invoke(initial_state)
+    config = {"configurable": {"thread_id": f"case-{datetime.now().timestamp()}"}}
 
-        # If pipeline stopped due to error, raise HTTP 500
+    try:
+        result = clinical_graph.invoke(initial_state, config=config)
         if result.get("error"):
-            raise HTTPException(
-                status_code=500,
-                detail=result["error"]
-            )
+            raise HTTPException(status_code=500, detail=result["error"])
 
         return DiagnosisResponse(
             status="success",
@@ -159,16 +159,13 @@ async def analyze_patient(request: PatientCaseRequest):
             structured_case=result.get("structured_case"),
             differential_diagnosis=result.get("differential_diagnosis"),
             final_report=result.get("final_report"),
-            confidence_score=result.get("confidence_score"), 
             critique=result.get("critique"),
-            error=None,
-            risk_assessment=result.get("risk_assessment")
-
+            confidence_score=result.get("confidence_score"),
+            risk_assessment=result.get("risk_assessment"),
+            error=None
         )
-
     except HTTPException:
-        raise  # re-raise HTTP exceptions as-is
-
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
