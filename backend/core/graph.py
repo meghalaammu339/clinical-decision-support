@@ -21,6 +21,7 @@ def route_after_research(state: ClinicalState) -> str:
 def increment_loop(state: ClinicalState) -> ClinicalState:
     return {**state, "loop_count": state.get("loop_count", 0) + 1}
 
+#place we defne node and edges
 
 def build_graph():
     graph = StateGraph(ClinicalState)
