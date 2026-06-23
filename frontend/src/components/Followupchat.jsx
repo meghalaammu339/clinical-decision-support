@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "./FollowUpChat.css";
+import "./Followupchat.css";
 
 export default function FollowUpChat({ report }) {
   const [question, setQuestion] = useState("");

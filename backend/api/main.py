@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from core.graph import clinical_graph
@@ -7,7 +8,11 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from core.config import get_llm
 import json
+import json as json_lib
 import requests as http_requests
+from langgraph.types import Command
+import uuid
+import asyncio
 
 
 app = FastAPI(
@@ -39,6 +44,7 @@ class PatientCaseRequest(BaseModel):
 
 class DiagnosisResponse(BaseModel):
     status: str
+    thread_id: Optional[str] = None
     current_step: Optional[str]
     structured_case: Optional[dict]
     differential_diagnosis: Optional[dict]
@@ -129,9 +135,15 @@ async def drug_interactions(request: DrugCheckRequest):
     return {"interactions": interactions, "message": f"Checked {len(meds)} medications"}
 
 
-@app.post("/analyze", response_model=DiagnosisResponse)
-async def analyze_patient(request: PatientCaseRequest):
-    from datetime import datetime
+class ApprovalRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    doctor_notes: Optional[str] = None
+
+
+@app.post("/analyze/stream")
+async def analyze_stream(request: PatientCaseRequest):
+    thread_id = f"case-{uuid.uuid4()}"
     initial_state = {
         "messages": [],
         "raw_input": request.model_dump(),
@@ -149,18 +161,127 @@ async def analyze_patient(request: PatientCaseRequest):
         "current_step": "starting",
         "guardrail_input_result": None,
         "guardrail_output_result": None,
-        "output_safety_warning": None
+        "output_safety_warning": None,
+        "human_approved": False,
+        "human_notes": None
     }
+    config = {"configurable": {"thread_id": thread_id}}
 
-    config = {"configurable": {"thread_id": f"case-{datetime.now().timestamp()}"}}
+    async def event_generator():
+        yield f"data: {json_lib.dumps({'type': 'thread_id', 'thread_id': thread_id})}\n\n"
+        # Track accumulated state so we can send a complete final event
+        accumulated = {**initial_state}
+        try:
+            for chunk in clinical_graph.stream(initial_state, config=config, stream_mode="updates"):
+                for node_name, node_output in chunk.items():
+                    # Merge into accumulated state
+                    accumulated = {**accumulated, **node_output}
+                    event = {
+                        "type": "node_complete",
+                        "node": node_name,
+                        "current_step": node_output.get("current_step"),
+                        "data": {}
+                    }
+                    if node_name == "input_guardrail":
+                        event["data"]["guardrail"] = node_output.get("guardrail_input_result")
+                    elif node_name == "risk_agent":
+                        event["data"]["risk_assessment"] = node_output.get("risk_assessment")
+                    elif node_name == "intake_agent":
+                        sc = node_output.get("structured_case") or {}
+                        event["data"]["chief_complaint"] = sc.get("chief_complaint")
+                        event["data"]["structured_case"] = node_output.get("structured_case")
+                    elif node_name == "extract_evidence":
+                        evidence = node_output.get("retrieved_evidence") or []
+                        event["data"]["evidence_count"] = len(evidence)
+                    elif node_name == "diagnosis_agent":
+                        dx = node_output.get("differential_diagnosis") or {}
+                        event["data"]["primary_diagnosis"] = dx.get("primary_diagnosis")
+                        event["data"]["differential_diagnosis"] = node_output.get("differential_diagnosis")
+                    elif node_name == "critique_agent":
+                        event["data"]["confidence_score"] = node_output.get("confidence_score")
+                        event["data"]["critique"] = node_output.get("critique")
+                    elif node_name == "human_review":
+                        if node_output.get("current_step") == "awaiting_human_approval":
+                            event["type"] = "awaiting_approval"
+                    elif node_name == "output_guardrail":
+                        event["data"]["warnings"] = node_output.get("output_safety_warning")
+                    yield f"data: {json_lib.dumps(event)}\n\n"
+                    await asyncio.sleep(0)
+
+            # Send complete final state so frontend has everything it needs
+            final_event = {
+                "type": "final",
+                "data": {
+                    "final_report": accumulated.get("final_report"),
+                    "structured_case": accumulated.get("structured_case"),
+                    "differential_diagnosis": accumulated.get("differential_diagnosis"),
+                    "risk_assessment": accumulated.get("risk_assessment"),
+                    "confidence_score": accumulated.get("confidence_score"),
+                    "critique": accumulated.get("critique"),
+                    "output_safety_warning": accumulated.get("output_safety_warning"),
+                }
+            }
+            yield f"data: {json_lib.dumps(final_event)}\n\n"
+            yield f"data: {json_lib.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json_lib.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
+@app.post("/analyze")
+async def analyze_patient(request: PatientCaseRequest):
+    thread_id = f"case-{uuid.uuid4()}"
+    initial_state = {
+        "messages": [],
+        "raw_input": request.model_dump(),
+        "risk_assessment": None,
+        "structured_case": None,
+        "retrieved_evidence": None,
+        "differential_diagnosis": None,
+        "critique": None,
+        "missed_diagnoses": None,
+        "confidence_score": None,
+        "final_report": None,
+        "next_agent": None,
+        "loop_count": 0,
+        "error": None,
+        "current_step": "starting",
+        "guardrail_input_result": None,
+        "guardrail_output_result": None,
+        "output_safety_warning": None,
+        "human_approved": False,
+        "human_notes": None
+    }
+    config = {"configurable": {"thread_id": thread_id}}
 
     try:
         result = clinical_graph.invoke(initial_state, config=config)
+
+        if (result.get("error") or "").startswith("INPUT_BLOCKED"):
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        # Graph paused at interrupt() — emergent case waiting for doctor
+        if result.get("current_step") == "awaiting_human_approval":
+            return {
+                "status": "awaiting_approval",
+                "thread_id": thread_id,
+                "current_step": "awaiting_human_approval",
+                "differential_diagnosis": result.get("differential_diagnosis"),
+                "urgency": (result.get("final_report") or {}).get("urgency"),
+                "message": "Emergent case detected. Doctor approval required before finalizing report."
+            }
+
         if result.get("error"):
             raise HTTPException(status_code=500, detail=result["error"])
 
         return DiagnosisResponse(
             status="success",
+            thread_id=thread_id,
             current_step=result.get("current_step"),
             structured_case=result.get("structured_case"),
             differential_diagnosis=result.get("differential_diagnosis"),
@@ -175,6 +296,37 @@ async def analyze_patient(request: PatientCaseRequest):
         )
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/approve")
+async def approve_case(request: ApprovalRequest):
+    config = {"configurable": {"thread_id": request.thread_id}}
+    try:
+        result = clinical_graph.invoke(
+            Command(resume={"approved": request.approved, "doctor_notes": request.doctor_notes}),
+            config=config
+        )
+
+        if not request.approved:
+            return {"status": "rejected", "message": "Case rejected by doctor. Pipeline terminated."}
+
+        return DiagnosisResponse(
+            status="success",
+            thread_id=request.thread_id,
+            current_step=result.get("current_step"),
+            structured_case=result.get("structured_case"),
+            differential_diagnosis=result.get("differential_diagnosis"),
+            final_report=result.get("final_report"),
+            critique=result.get("critique"),
+            confidence_score=result.get("confidence_score"),
+            risk_assessment=result.get("risk_assessment"),
+            guardrail_input_result=result.get("guardrail_input_result"),
+            guardrail_output_result=result.get("guardrail_output_result"),
+            output_safety_warning=result.get("output_safety_warning"),
+            error=None
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

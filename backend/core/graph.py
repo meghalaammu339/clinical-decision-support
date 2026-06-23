@@ -9,12 +9,15 @@ from agents.critique_agent import critique_agent
 from agents.supervisor import supervisor_node
 from agents.input_guardrail import input_guardrail
 from agents.output_guardrail import output_guardrail
+from agents.human_review import human_review_node
 
 
 def route_after_input_guardrail(state: ClinicalState) -> str:
-    if state.get("error", "").startswith("INPUT_BLOCKED"):
+    error = state.get("error") or ""
+    if error.startswith("INPUT_BLOCKED"):
         return "blocked"
     return "continue"
+
 
 def route_after_supervisor(state: ClinicalState) -> str:
     return state["next_agent"]
@@ -28,13 +31,24 @@ def route_after_research(state: ClinicalState) -> str:
 def increment_loop(state: ClinicalState) -> ClinicalState:
     return {**state, "loop_count": state.get("loop_count", 0) + 1}
 
-#place we defne node and edges
+
+def route_to_human_or_output(state: ClinicalState) -> str:
+    urgency = (state.get("final_report") or {}).get("urgency")
+    if urgency == "emergent" and not state.get("human_approved"):
+        return "human_review"
+    return "output_guardrail"
+
+
+def route_after_human_review(state: ClinicalState) -> str:
+    if state.get("current_step") == "rejected":
+        return "rejected"
+    return "output_guardrail"
+
 
 def build_graph():
     graph = StateGraph(ClinicalState)
-    graph.add_node("input_guardrail", input_guardrail)
-    graph.add_node("output_guardrail", output_guardrail)
 
+    graph.add_node("input_guardrail", input_guardrail)
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("risk_agent", risk_agent)
     graph.add_node("intake_agent", intake_agent)
@@ -44,6 +58,9 @@ def build_graph():
     graph.add_node("diagnosis_agent", diagnosis_agent)
     graph.add_node("critique_agent", critique_agent)
     graph.add_node("loop_tracker", increment_loop)
+    graph.add_node("finish_router", lambda s: s)
+    graph.add_node("human_review", human_review_node)
+    graph.add_node("output_guardrail", output_guardrail)
 
     graph.set_entry_point("input_guardrail")
 
@@ -58,7 +75,7 @@ def build_graph():
         "research_agent": "research_agent",
         "diagnosis_agent": "diagnosis_agent",
         "critique_agent": "critique_agent",
-        "FINISH": "output_guardrail",
+        "FINISH": "finish_router",
     })
 
     graph.add_edge("risk_agent", "supervisor")
@@ -74,7 +91,19 @@ def build_graph():
     graph.add_edge("diagnosis_agent", "supervisor")
     graph.add_edge("critique_agent", "loop_tracker")
     graph.add_edge("loop_tracker", "supervisor")
+
+    graph.add_conditional_edges("finish_router", route_to_human_or_output, {
+        "human_review": "human_review",
+        "output_guardrail": "output_guardrail",
+    })
+
+    graph.add_conditional_edges("human_review", route_after_human_review, {
+        "output_guardrail": "output_guardrail",
+        "rejected": END,
+    })
+
     graph.add_edge("output_guardrail", END)
+
     checkpointer = MemorySaver()
     return graph.compile(checkpointer=checkpointer)
 

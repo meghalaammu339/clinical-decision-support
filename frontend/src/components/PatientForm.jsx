@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "./PatientForm.css";
-import VoiceInput from "./VoiceInput";
+import VoiceInput from "./Voiceinput";
 
 const SAMPLE = {
   symptoms: "Chest pain radiating to left arm, sweating, shortness of breath",

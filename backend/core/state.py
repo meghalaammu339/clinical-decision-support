@@ -68,6 +68,6 @@ class ClinicalState(TypedDict):
     guardrail_input_result: Optional[dict]
     guardrail_output_result: Optional[dict]
     output_safety_warning: Optional[list]
-    guardrail_input_result: Optional[dict]
-    guardrail_output_result: Optional[dict]
-    output_safety_warning: Optional[list]
+    human_approved: Optional[bool]
+    human_notes: Optional[str]
+    

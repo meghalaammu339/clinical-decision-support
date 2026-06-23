@@ -1,5 +1,5 @@
 
-import "./ConfidenceGauge.css";
+import "./Confidencegauge.css";
 
 export default function ConfidenceGauge({ score }) {
   if (!score) return null;

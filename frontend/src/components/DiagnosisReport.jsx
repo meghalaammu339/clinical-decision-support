@@ -167,11 +167,11 @@
 
 
 import "./DiagnosisReport.css";
-import ConfidenceGauge from "./ConfidenceGauge";
+import ConfidenceGauge from "./Confidencegauge";
 import ExportButton from "./ExportButton";
 import RiskScore from "./RiskScore";
-import DrugInteractions from "./DrugInteractions";
-import FollowUpChat from "./FollowUpChat";
+import DrugInteractions from "./Druginteractions";
+import FollowUpChat from "./Followupchat";
 
 const URGENCY_COLOR = {
   emergent: "#ef4444",
