@@ -65,3 +65,9 @@ class ClinicalState(TypedDict):
     loop_count: int
     error: Optional[str]
     current_step: Optional[str]
+    guardrail_input_result: Optional[dict]
+    guardrail_output_result: Optional[dict]
+    output_safety_warning: Optional[list]
+    guardrail_input_result: Optional[dict]
+    guardrail_output_result: Optional[dict]
+    output_safety_warning: Optional[list]

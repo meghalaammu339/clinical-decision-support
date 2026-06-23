@@ -46,7 +46,10 @@ class DiagnosisResponse(BaseModel):
     critique: Optional[str]
     error: Optional[str]
     confidence_score: Optional[int]
-    risk_assessment: Optional[dict]   # ADD THIS
+    risk_assessment: Optional[dict]
+    guardrail_input_result: Optional[dict] = None
+    guardrail_output_result: Optional[dict] = None
+    output_safety_warning: Optional[list] = None
 
 
 class FollowUpRequest(BaseModel):
@@ -143,7 +146,10 @@ async def analyze_patient(request: PatientCaseRequest):
         "next_agent": None,
         "loop_count": 0,
         "error": None,
-        "current_step": "starting"
+        "current_step": "starting",
+        "guardrail_input_result": None,
+        "guardrail_output_result": None,
+        "output_safety_warning": None
     }
 
     config = {"configurable": {"thread_id": f"case-{datetime.now().timestamp()}"}}
@@ -162,6 +168,9 @@ async def analyze_patient(request: PatientCaseRequest):
             critique=result.get("critique"),
             confidence_score=result.get("confidence_score"),
             risk_assessment=result.get("risk_assessment"),
+            guardrail_input_result=result.get("guardrail_input_result"),
+            guardrail_output_result=result.get("guardrail_output_result"),
+            output_safety_warning=result.get("output_safety_warning"),
             error=None
         )
     except HTTPException:

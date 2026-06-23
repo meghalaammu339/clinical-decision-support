@@ -7,7 +7,14 @@ from agents.research_agent import research_agent, research_tool_node, extract_ev
 from agents.diagnosis_agent import diagnosis_agent
 from agents.critique_agent import critique_agent
 from agents.supervisor import supervisor_node
+from agents.input_guardrail import input_guardrail
+from agents.output_guardrail import output_guardrail
 
+
+def route_after_input_guardrail(state: ClinicalState) -> str:
+    if state.get("error", "").startswith("INPUT_BLOCKED"):
+        return "blocked"
+    return "continue"
 
 def route_after_supervisor(state: ClinicalState) -> str:
     return state["next_agent"]
@@ -25,6 +32,8 @@ def increment_loop(state: ClinicalState) -> ClinicalState:
 
 def build_graph():
     graph = StateGraph(ClinicalState)
+    graph.add_node("input_guardrail", input_guardrail)
+    graph.add_node("output_guardrail", output_guardrail)
 
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("risk_agent", risk_agent)
@@ -36,7 +45,12 @@ def build_graph():
     graph.add_node("critique_agent", critique_agent)
     graph.add_node("loop_tracker", increment_loop)
 
-    graph.set_entry_point("supervisor")
+    graph.set_entry_point("input_guardrail")
+
+    graph.add_conditional_edges("input_guardrail", route_after_input_guardrail, {
+        "blocked": END,
+        "continue": "supervisor",
+    })
 
     graph.add_conditional_edges("supervisor", route_after_supervisor, {
         "risk_agent": "risk_agent",
@@ -44,7 +58,7 @@ def build_graph():
         "research_agent": "research_agent",
         "diagnosis_agent": "diagnosis_agent",
         "critique_agent": "critique_agent",
-        "FINISH": END,
+        "FINISH": "output_guardrail",
     })
 
     graph.add_edge("risk_agent", "supervisor")
@@ -60,7 +74,7 @@ def build_graph():
     graph.add_edge("diagnosis_agent", "supervisor")
     graph.add_edge("critique_agent", "loop_tracker")
     graph.add_edge("loop_tracker", "supervisor")
-
+    graph.add_edge("output_guardrail", END)
     checkpointer = MemorySaver()
     return graph.compile(checkpointer=checkpointer)
 
