@@ -16,10 +16,17 @@ export default function App() {
   const [threadId, setThreadId] = useState(null);
   const [awaitingApproval, setAwaitingApproval] = useState(false);
   const [history, setHistory] = useState([]);
+  const [pipelineDone, setPipelineDone] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("case_history");
-    if (saved) setHistory(JSON.parse(saved));
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Filter out bad entries with no diagnosis (from blocked/failed runs)
+      const clean = parsed.filter(c => c.primary_diagnosis && c.primary_diagnosis !== "Unknown" && c.result?.final_report);
+      setHistory(clean);
+      localStorage.setItem("case_history", JSON.stringify(clean));
+    }
   }, []);
 
   const saveToHistory = (formData, res) => {
@@ -44,6 +51,7 @@ export default function App() {
     setError(null);
     setStreamData({});
     setActiveNode(null);
+    setPipelineDone(false);
 
     analyzePatientStream(formData, {
       onThreadId: (id) => setThreadId(id),
@@ -54,7 +62,10 @@ export default function App() {
       },
 
       onFinal: (data) => {
+        // Don't save or show if pipeline was blocked/failed
+        if (!data.final_report) return;
         setResult(data);
+        setPipelineDone(true);
         const newCase = {
           id: Date.now(),
           timestamp: new Date().toLocaleString(),
@@ -72,7 +83,8 @@ export default function App() {
         });
       },
 
-      onAwaitingApproval: () => {
+      onAwaitingApproval: (event) => {
+        if (event.thread_id) setThreadId(event.thread_id);
         setAwaitingApproval(true);
         setLoading(false);
       },
@@ -80,12 +92,15 @@ export default function App() {
       onDone: () => {
         setLoading(false);
         setActiveNode(null);
+        setPipelineDone(true);
       },
 
       onError: (msg) => {
-        setError(typeof msg === "string" ? msg : "Something went wrong");
+        const clean = typeof msg === "string" ? msg.replace("INPUT_BLOCKED: ", "🚫 Input blocked: ") : "Something went wrong";
+        setError(clean);
         setLoading(false);
         setActiveNode(null);
+        setPipelineDone(false);
       },
     });
   };
@@ -110,6 +125,7 @@ export default function App() {
 
   const loadCase = (caseItem) => {
     setResult(caseItem.result);
+    setPipelineDone(false); // don't light up pipeline for loaded cases
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -141,10 +157,14 @@ export default function App() {
       </header>
 
       <main className="main">
-        <PipelineTracker activeNode={activeNode} streamData={streamData} done={!!displayResult} />
+        <PipelineTracker activeNode={activeNode} streamData={streamData} done={pipelineDone} />
         <PatientForm onSubmit={handleSubmit} loading={loading} />
 
-        {error && <div className="error-box">⚠️ {error}</div>}
+        {history.length > 0 && (
+          <CaseHistory history={history} onLoad={loadCase} onClear={clearHistory} />
+        )}
+
+        {error && error.trim() && <div className="error-box">⚠️ {error}</div>}
 
         {awaitingApproval && (
           <ApprovalModal
@@ -153,11 +173,7 @@ export default function App() {
           />
         )}
 
-        {displayResult && <DiagnosisReport data={displayResult} />}
-
-        {history.length > 0 && (
-          <CaseHistory history={history} onLoad={loadCase} onClear={clearHistory} />
-        )}
+        {result && <DiagnosisReport data={result} />}
       </main>
 
       <footer className="footer">

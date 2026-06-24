@@ -29,9 +29,11 @@ export default function CaseHistory({ history, onLoad, onClear }) {
                 </span>
                 <span className="history-dx">{item.primary_diagnosis}</span>
               </div>
-              <p className="history-symptoms">{item.symptoms.slice(0, 80)}...</p>
+              <p className="history-symptoms">
+                {((item.symptoms || item.result?.structured_case?.chief_complaint || "No details")).slice(0, 100)}
+              </p>
               <p className="history-meta">
-                {item.gender} · {item.age} yrs · {item.timestamp}
+                {item.gender && `${item.gender} · `}{item.age && `${item.age} yrs · `}{item.timestamp}
               </p>
             </div>
             <button className="btn-load" onClick={() => onLoad(item)}>

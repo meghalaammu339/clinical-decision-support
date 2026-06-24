@@ -39,6 +39,8 @@ export const analyzePatientStream = (patientData, callbacks) => {
             callbacks.onNode?.(event);
           } else if (event.type === "final") {
             callbacks.onFinal?.(event.data);
+          } else if (event.type === "blocked") {
+            callbacks.onError?.("🚫 Input blocked by guardrail: " + event.message);
           } else if (event.type === "awaiting_approval") {
             callbacks.onAwaitingApproval?.(event);
           } else if (event.type === "done") {

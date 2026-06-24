@@ -2,23 +2,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 12px;
-  padding: 20px 28px;
+  padding: 16px 24px;
+  gap: 0;
+  flex-wrap: nowrap;
 }
 
 .pipeline-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
+}
+
+.pipeline-step {
+  position: relative;
 }
 
 .pipeline-node {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #334155;
   border: 2px solid #475569;
@@ -26,17 +30,18 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   color: #94a3b8;
   transition: all 0.3s;
-  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 .pipeline-node.active {
   background: #2563eb;
   border-color: #60a5fa;
   color: white;
-  box-shadow: 0 0 16px #2563eb88;
+  box-shadow: 0 0 14px #2563eb88;
   animation: pulse 1s infinite;
 }
 
@@ -46,39 +51,51 @@
   color: white;
 }
 
+.pipeline-node:hover {
+  transform: scale(1.1);
+}
+
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.12); }
 }
 
-.pipeline-label {
-  text-align: left;
+.pipeline-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
 }
 
-.step-name {
-  font-size: 13px;
+.pipeline-tooltip strong {
+  font-size: 12px;
+  color: #e2e8f0;
   font-weight: 600;
-  color: #cbd5e1;
 }
 
-.step-desc {
+.pipeline-tooltip span {
   font-size: 11px;
-  color: #64748b;
-  margin-top: 2px;
+  color: #60a5fa;
 }
 
 .pipeline-arrow {
   color: #475569;
-  font-size: 18px;
+  font-size: 14px;
   margin: 0 4px;
   transition: color 0.3s;
+  flex-shrink: 0;
 }
 
 .pipeline-arrow.arrow-done {
   color: #22c55e;
-}
-
-@media (max-width: 640px) {
-  .pipeline-arrow { display: none; }
-  .pipeline { gap: 12px; }
 }
