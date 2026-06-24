@@ -56,24 +56,30 @@ def supervisor_node(state: ClinicalState) -> ClinicalState:
         print("Supervisor decision: critique_agent")
         return {**state, "next_agent": "critique_agent"}
 
-    # Stage 6: post-critique — LLM decides if retry is needed
+    # Stage 6: post-critique — hard cap first, then LLM decides
     loop_count = state.get("loop_count", 0)
     if loop_count >= 2:
         print("Supervisor decision: FINISH (max loops reached)")
         return {**state, "next_agent": "FINISH"}
 
+    # Only ask LLM if confidence is genuinely low — avoid unnecessary retries
+    confidence = state.get("confidence_score") or 100
+    missed = state.get("missed_diagnoses") or []
+    if confidence >= 60 and not missed:
+        print("Supervisor decision: FINISH")
+        return {**state, "next_agent": "FINISH"}
+
     llm = get_llm()
     chain = RETRY_PROMPT | llm | StrOutputParser()
     decision = chain.invoke({
-        "confidence_score": state.get("confidence_score", 100),
-        "missed_diagnoses": state.get("missed_diagnoses") or [],
+        "confidence_score": confidence,
+        "missed_diagnoses": missed,
         "loop_count": loop_count,
     }).strip()
 
     if decision not in ("diagnosis_agent", "FINISH"):
         decision = "FINISH"
 
-    # Reset critique so the next loop goes through critique again
     if decision == "diagnosis_agent":
         print(f"Supervisor decision: diagnosis_agent (retry loop {loop_count + 1})")
         return {**state, "next_agent": "diagnosis_agent", "critique": None, "differential_diagnosis": None}

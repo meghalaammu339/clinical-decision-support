@@ -13,6 +13,7 @@ import requests as http_requests
 from langgraph.types import Command
 import uuid
 import asyncio
+from langgraph.errors import GraphInterrupt
 
 
 app = FastAPI(
@@ -165,63 +166,64 @@ async def analyze_stream(request: PatientCaseRequest):
         "human_approved": False,
         "human_notes": None
     }
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
 
     async def event_generator():
         yield f"data: {json_lib.dumps({'type': 'thread_id', 'thread_id': thread_id})}\n\n"
-        # Track accumulated state so we can send a complete final event
         accumulated = {**initial_state}
         try:
             for chunk in clinical_graph.stream(initial_state, config=config, stream_mode="updates"):
                 for node_name, node_output in chunk.items():
-                    # Merge into accumulated state
-                    accumulated = {**accumulated, **node_output}
+                    if isinstance(node_output, dict):
+                        safe = {k: v for k, v in node_output.items() if k != "messages"}
+                        accumulated = {**accumulated, **safe}
+
+                    # If input was blocked, send error immediately and stop
+                    if isinstance(node_output, dict) and (node_output.get("error") or "").startswith("INPUT_BLOCKED"):
+                        reason = node_output["error"].replace("INPUT_BLOCKED: ", "")
+                        yield f"data: {json_lib.dumps({'type': 'blocked', 'message': reason})}\n\n"
+                        return
+
                     event = {
                         "type": "node_complete",
                         "node": node_name,
-                        "current_step": node_output.get("current_step"),
+                        "current_step": node_output.get("current_step") if isinstance(node_output, dict) else None,
                         "data": {}
                     }
-                    if node_name == "input_guardrail":
-                        event["data"]["guardrail"] = node_output.get("guardrail_input_result")
-                    elif node_name == "risk_agent":
+                    if not isinstance(node_output, dict):
+                        yield f"data: {json_lib.dumps(event)}\n\n"
+                        await asyncio.sleep(0)
+                        continue
+
+                    if node_name == "risk_agent":
                         event["data"]["risk_assessment"] = node_output.get("risk_assessment")
                     elif node_name == "intake_agent":
                         sc = node_output.get("structured_case") or {}
                         event["data"]["chief_complaint"] = sc.get("chief_complaint")
-                        event["data"]["structured_case"] = node_output.get("structured_case")
                     elif node_name == "extract_evidence":
                         evidence = node_output.get("retrieved_evidence") or []
                         event["data"]["evidence_count"] = len(evidence)
                     elif node_name == "diagnosis_agent":
                         dx = node_output.get("differential_diagnosis") or {}
                         event["data"]["primary_diagnosis"] = dx.get("primary_diagnosis")
-                        event["data"]["differential_diagnosis"] = node_output.get("differential_diagnosis")
                     elif node_name == "critique_agent":
                         event["data"]["confidence_score"] = node_output.get("confidence_score")
                         event["data"]["critique"] = node_output.get("critique")
                     elif node_name == "human_review":
                         if node_output.get("current_step") == "awaiting_human_approval":
                             event["type"] = "awaiting_approval"
-                    elif node_name == "output_guardrail":
-                        event["data"]["warnings"] = node_output.get("output_safety_warning")
+
                     yield f"data: {json_lib.dumps(event)}\n\n"
                     await asyncio.sleep(0)
 
-            # Send complete final state so frontend has everything it needs
-            final_event = {
-                "type": "final",
-                "data": {
-                    "final_report": accumulated.get("final_report"),
-                    "structured_case": accumulated.get("structured_case"),
-                    "differential_diagnosis": accumulated.get("differential_diagnosis"),
-                    "risk_assessment": accumulated.get("risk_assessment"),
-                    "confidence_score": accumulated.get("confidence_score"),
-                    "critique": accumulated.get("critique"),
-                    "output_safety_warning": accumulated.get("output_safety_warning"),
-                }
-            }
-            yield f"data: {json_lib.dumps(final_event)}\n\n"
+            # Only send final if we have an actual report
+            if accumulated.get("final_report"):
+                yield f"data: {json_lib.dumps({'type': 'final', 'data': {'final_report': accumulated.get('final_report'), 'structured_case': accumulated.get('structured_case'), 'differential_diagnosis': accumulated.get('differential_diagnosis'), 'risk_assessment': accumulated.get('risk_assessment'), 'confidence_score': accumulated.get('confidence_score'), 'critique': accumulated.get('critique'), 'output_safety_warning': accumulated.get('output_safety_warning')}})}\n\n"
+            yield f"data: {json_lib.dumps({'type': 'done'})}\n\n"
+        except GraphInterrupt:
+            # LangGraph raises this when interrupt() is called inside a node
+            # This means an emergent case hit human_review and is paused
+            yield f"data: {json_lib.dumps({'type': 'awaiting_approval', 'thread_id': thread_id, 'node': 'human_review', 'data': {'primary_diagnosis': accumulated.get('differential_diagnosis', {}).get('primary_diagnosis') if isinstance(accumulated.get('differential_diagnosis'), dict) else None}})}\n\n"
             yield f"data: {json_lib.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json_lib.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -257,7 +259,7 @@ async def analyze_patient(request: PatientCaseRequest):
         "human_approved": False,
         "human_notes": None
     }
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
 
     try:
         result = clinical_graph.invoke(initial_state, config=config)
@@ -302,7 +304,7 @@ async def analyze_patient(request: PatientCaseRequest):
 
 @app.post("/approve")
 async def approve_case(request: ApprovalRequest):
-    config = {"configurable": {"thread_id": request.thread_id}}
+    config = {"configurable": {"thread_id": request.thread_id}, "recursion_limit": 50}
     try:
         result = clinical_graph.invoke(
             Command(resume={"approved": request.approved, "doctor_notes": request.doctor_notes}),
